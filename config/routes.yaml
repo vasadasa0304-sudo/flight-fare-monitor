@@ -1,0 +1,15 @@
+routes:
+  - origin: LHR
+    destination: JFK
+    label: "London to New York"
+  - origin: LHR
+    destination: DXB
+    label: "London to Dubai"
+
+departure_dates:
+  - "2025-06-01"
+  - "2025-06-15"
+
+adults: 1
+cabin: ECONOMY
+max_offers: 5
