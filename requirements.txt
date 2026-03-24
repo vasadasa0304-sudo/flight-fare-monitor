@@ -4,4 +4,4 @@ pyyaml
 sqlalchemy
 psycopg2-binary
 pandas
-streamlit
+streamlit>=1.32.0
