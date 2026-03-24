@@ -1,5 +1,8 @@
 # Flight Fare Monitor
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-ff4b4b?logo=streamlit)](https://vasadasa0304-sudo-flight-fare--appdashboardstreamlit-app-rnegd4.streamlit.app)
+[![GitHub](https://img.shields.io/badge/Source-GitHub-181717?logo=github)](https://github.com/vasadasa0304-sudo/flight-fare-monitor)
+
 A Python data pipeline that fetches live flight fares from the Amadeus API, stores price snapshots in PostgreSQL, and surfaces trends through a Streamlit dashboard — with a configurable alert system that fires when fares drop below defined thresholds.
 
 Built as a portfolio project demonstrating end-to-end data engineering: API integration, relational data modelling, analytics queries, a live dashboard, and a pluggable notification system.
