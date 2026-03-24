@@ -1,3 +1,6 @@
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 import streamlit as st
 from app.analytics.metrics import get_latest_fares, get_cheapest_by_route, get_price_trend
 from app.db.connection import engine
