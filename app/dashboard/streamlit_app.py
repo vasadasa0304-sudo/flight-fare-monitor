@@ -10,22 +10,22 @@ st.set_page_config(page_title="Flight Fare Monitor", page_icon="✈️", layout=
 st.title("✈️ Flight Fare Monitor")
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)
 def load_latest_fares():
     return get_latest_fares()
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)
 def load_cheapest_by_route():
     return get_cheapest_by_route()
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)
 def load_price_trend(origin, destination, departure_date):
     return get_price_trend(origin, destination, departure_date)
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=600)
 def load_counts():
     with engine.connect() as conn:
         routes = conn.execute(text("SELECT COUNT(*) FROM routes")).scalar()
