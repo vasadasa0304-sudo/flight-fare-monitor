@@ -6,14 +6,10 @@ Run with:
 """
 
 from datetime import datetime, UTC
-from app.pipeline.fetch_offers import fetch_and_save
+from app.pipeline.fetch_offers import fetch_and_save, load_config
 from app.pipeline.normalize_offers import normalize_all
 from app.db.connection import SessionLocal
 from app.db.models import Route, SearchConfig, FareSnapshot, PipelineRun
-from app.pipeline.fetch_offers import (
-    ORIGIN, DESTINATION, DEPARTURE_DATE,
-    ADULTS, TRAVEL_CLASS, CURRENCY_CODE, NON_STOP
-)
 
 
 def get_or_create_route(session, origin: str, destination: str) -> Route:
@@ -27,23 +23,31 @@ def get_or_create_route(session, origin: str, destination: str) -> Route:
     return route
 
 
-def get_or_create_search_config(session, route: Route) -> SearchConfig:
+def get_or_create_search_config(
+    session,
+    route: Route,
+    departure_date: str,
+    adults: int,
+    cabin: str,
+    currency: str,
+    non_stop: bool,
+) -> SearchConfig:
     config = session.query(SearchConfig).filter_by(
         route_id=route.route_id,
-        departure_date=DEPARTURE_DATE,
-        adults=ADULTS,
-        cabin=TRAVEL_CLASS,
-        currency=CURRENCY_CODE,
-        non_stop=NON_STOP,
+        departure_date=departure_date,
+        adults=adults,
+        cabin=cabin,
+        currency=currency,
+        non_stop=non_stop,
     ).first()
     if not config:
         config = SearchConfig(
             route_id=route.route_id,
-            departure_date=DEPARTURE_DATE,
-            adults=ADULTS,
-            cabin=TRAVEL_CLASS,
-            currency=CURRENCY_CODE,
-            non_stop=NON_STOP,
+            departure_date=departure_date,
+            adults=adults,
+            cabin=cabin,
+            currency=currency,
+            non_stop=non_stop,
         )
         session.add(config)
         session.flush()
@@ -51,6 +55,13 @@ def get_or_create_search_config(session, route: Route) -> SearchConfig:
 
 
 def run() -> None:
+    cfg = load_config()
+    adults = cfg.get("adults", 1)
+    cabin = cfg.get("cabin", "ECONOMY")
+    currency = cfg.get("currency", "GBP")
+    non_stop = cfg.get("non_stop", False)
+    max_offers = cfg.get("max_offers", 10)
+
     started_at = datetime.now(UTC)
     print("=== Flight Fare Monitor Pipeline ===")
 
@@ -60,43 +71,65 @@ def run() -> None:
         session.flush()
 
         try:
-            raw_offers = fetch_and_save()
-            if not raw_offers:
+            total_snapshots = 0
+
+            for route_cfg in cfg["routes"]:
+                origin = route_cfg["origin"]
+                destination = route_cfg["destination"]
+
+                for departure_date in cfg["departure_dates"]:
+                    raw_offers = fetch_and_save(
+                        origin=origin,
+                        destination=destination,
+                        departure_date=departure_date,
+                        adults=adults,
+                        travel_class=cabin,
+                        currency_code=currency,
+                        non_stop=non_stop,
+                        max_offers=max_offers,
+                    )
+                    if not raw_offers:
+                        continue
+
+                    rows = normalize_all(raw_offers, collected_at=started_at)
+                    print(f"Normalized: {len(rows)} rows")
+
+                    route = get_or_create_route(session, origin, destination)
+                    search_config = get_or_create_search_config(
+                        session, route, departure_date, adults, cabin, currency, non_stop
+                    )
+
+                    snapshots = [
+                        FareSnapshot(
+                            search_id=search_config.search_id,
+                            carrier_code=r["carrier_code"],
+                            validating_airline_code=r["validating_airline_code"],
+                            departure_time=r["departure_time"],
+                            arrival_time=r["arrival_time"],
+                            stops=r["stops"],
+                            duration_minutes=r["duration_minutes"],
+                            price_total=r["price_total"],
+                            currency=r["currency"],
+                            collected_at=started_at,
+                        )
+                        for r in rows
+                    ]
+                    session.add_all(snapshots)
+                    total_snapshots += len(snapshots)
+
+            if total_snapshots == 0:
                 pipeline_run.status = "no_data"
                 pipeline_run.finished_at = datetime.now(UTC)
                 session.commit()
                 print("No offers fetched. Exiting.")
                 return
 
-            rows = normalize_all(raw_offers, collected_at=started_at)
-            print(f"Normalized: {len(rows)} rows")
-
-            route = get_or_create_route(session, ORIGIN, DESTINATION)
-            config = get_or_create_search_config(session, route)
-
-            snapshots = [
-                FareSnapshot(
-                    search_id=config.search_id,
-                    carrier_code=r["carrier_code"],
-                    validating_airline_code=r["validating_airline_code"],
-                    departure_time=r["departure_time"],
-                    arrival_time=r["arrival_time"],
-                    stops=r["stops"],
-                    duration_minutes=r["duration_minutes"],
-                    price_total=r["price_total"],
-                    currency=r["currency"],
-                    collected_at=started_at,
-                )
-                for r in rows
-            ]
-            session.add_all(snapshots)
-
             pipeline_run.status = "success"
             pipeline_run.finished_at = datetime.now(UTC)
-            pipeline_run.rows_inserted = len(snapshots)
+            pipeline_run.rows_inserted = total_snapshots
             session.commit()
 
-            print(f"Stored: {len(snapshots)} snapshots")
+            print(f"Stored: {total_snapshots} snapshots")
             print(f"Pipeline run ID: {pipeline_run.run_id}")
             print("Done.")
 

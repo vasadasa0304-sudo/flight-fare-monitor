@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 from app.analytics.metrics import get_latest_fares, get_cheapest_by_route, get_price_trend
 from app.db.connection import engine
 from sqlalchemy import text

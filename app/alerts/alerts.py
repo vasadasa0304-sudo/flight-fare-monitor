@@ -1,5 +1,10 @@
+import os
+import requests
 from datetime import datetime, UTC
+from dotenv import load_dotenv
 from app.analytics.metrics import get_cheapest_by_route
+
+load_dotenv()
 
 THRESHOLDS = {
     "LHR-JFK": 500.00,
@@ -24,9 +29,42 @@ class ConsoleNotifier(BaseNotifier):
         print()
 
 
+class TelegramNotifier(BaseNotifier):
+    def __init__(self):
+        self.token = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        if not self.token or not self.chat_id:
+            raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in .env")
+
+    def send(self, route: str, price: float, threshold: float, currency: str) -> None:
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+        message = (
+            f"✈️ *Fare Alert*\n"
+            f"Route: `{route}`\n"
+            f"Price: *{currency} {price:.2f}*\n"
+            f"Threshold: {currency} {threshold:.2f}\n"
+            f"Status: Below threshold — consider booking\n"
+            f"_{timestamp}_"
+        )
+        try:
+            response = requests.post(
+                f"https://api.telegram.org/bot{self.token}/sendMessage",
+                json={
+                    "chat_id": self.chat_id,
+                    "text": message,
+                    "parse_mode": "Markdown",
+                },
+                timeout=10,
+            )
+            if response.status_code != 200:
+                print(f"Telegram error: {response.text}")
+        except requests.exceptions.RequestException as e:
+            print(f"Telegram request failed: {e}")
+
+
 def check_alerts(notifiers: list[BaseNotifier] = None) -> None:
     if notifiers is None:
-        notifiers = [ConsoleNotifier()]
+        notifiers = [ConsoleNotifier(), TelegramNotifier()]
 
     df = get_cheapest_by_route()
 

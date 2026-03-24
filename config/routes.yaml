@@ -5,11 +5,17 @@ routes:
   - origin: LHR
     destination: DXB
     label: "London to Dubai"
+  - origin: LHR
+    destination: MAD
+    label: "London to Madrid"
 
 departure_dates:
-  - "2025-06-01"
-  - "2025-06-15"
+  - "2026-06-01"
+  - "2026-06-15"
+  - "2026-07-01"
 
 adults: 1
 cabin: ECONOMY
+currency: GBP
+non_stop: false
 max_offers: 5

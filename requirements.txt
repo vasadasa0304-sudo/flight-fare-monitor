@@ -1,5 +1,6 @@
 requests
 python-dotenv
+pyyaml
 sqlalchemy
 psycopg2-binary
 pandas
